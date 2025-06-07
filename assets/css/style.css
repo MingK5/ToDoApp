@@ -77,3 +77,49 @@ html, body {
 .auth-link a:hover {
   text-decoration: underline;
 }
+
+.truncate-1 {
+  display: inline-block;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* make each calendar cell a positioning context */
+.table td {
+  position: relative;
+  padding: 4px;            /* tighten up the default table-cell padding */
+  height: 100px;           /* enforce your fixed-height cells */
+  vertical-align: top;
+}
+
+/* wrapper for up to 3 badges, clipped if too many */
+.task-container {
+  position: absolute;
+  top: 1.8em;              /* push it just below the date line */
+  left: 4px;
+  right: 4px;
+  bottom: 4px;             /* reserve space for “+N more” */
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;                /* small gap between badges */
+}
+
+/* single-line badges, ellipsis if too long */
+.task-container .badge {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* the “+N more” indicator */
+.task-more {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  font-size: 0.75em;
+  color: #6c757d;
+}
