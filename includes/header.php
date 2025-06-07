@@ -26,6 +26,12 @@
           <a class="nav-link" href="/ToDoApp/calendar">Calendar</a>
         </li>
         <li class="nav-item">
+          <a class="nav-link" href="/ToDoApp/schedule">Schedule</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/ToDoApp/status">Status</a>
+        </li>
+        <li class="nav-item">
           <a class="nav-link" href="/ToDoApp/archive">Archive</a>
         </li>
         <li class="nav-item">

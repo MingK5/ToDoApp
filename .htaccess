@@ -22,6 +22,8 @@
                                        tasks/day.php?date=$1       [L,QSA]
   RewriteRule ^task/add/?$             tasks/task_add.php          [L,QSA]
   RewriteRule ^task/edit/([0-9]+)/?$   tasks/task_edit.php?id=$1   [L,QSA]
+  RewriteRule ^schedule/?$             tasks/schedule.php           [L,QSA]
+  RewriteRule ^status/?$               tasks/status.php           [L,QSA]
   RewriteRule ^archive/?$              tasks/archive.php           [L,QSA]
   RewriteRule ^login/?$                auth/login.php              [L,QSA]
   RewriteRule ^register/?$             auth/register.php           [L,QSA]
