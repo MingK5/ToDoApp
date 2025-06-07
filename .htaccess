@@ -1,0 +1,35 @@
+# ───────────────────────────────────────────────────────────────────────────────
+# 1) Enable rewriting and set the base URL (adjust “/ToDoApp/” to match your URL)
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /ToDoApp/
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 2) Deny all direct HTTP access to the includes/ folder
+  RewriteRule ^includes/ - [F,L]
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 3) If the request is for a real file or directory, serve it as-is
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 4) Pretty-URL → actual PHP scripts
+  #    e.g. /ToDoApp/calendar → /ToDoApp/tasks/calendar.php
+  RewriteRule ^$                        index.php                   [L]
+  RewriteRule ^calendar/?$             tasks/calendar.php          [L,QSA]
+  RewriteRule ^day/([0-9]{4}-[0-9]{2}-[0-9]{2})/?$ \
+                                       tasks/day.php?date=$1       [L,QSA]
+  RewriteRule ^task/add/?$             tasks/task_add.php          [L,QSA]
+  RewriteRule ^task/edit/([0-9]+)/?$   tasks/task_edit.php?id=$1   [L,QSA]
+  RewriteRule ^archive/?$              tasks/archive.php           [L,QSA]
+  RewriteRule ^login/?$                auth/login.php              [L,QSA]
+  RewriteRule ^register/?$             auth/register.php           [L,QSA]
+  RewriteRule ^logout/?$               auth/logout.php             [L,QSA]
+</IfModule>
+
+# ───────────────────────────────────────────────────────────────────────────────
+# 5) Protect this .htaccess file itself
+<Files ".htaccess">
+  Require all denied
+</Files>
