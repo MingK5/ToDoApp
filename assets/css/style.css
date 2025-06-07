@@ -2,124 +2,14 @@
 html, body {
   height: 100%;
   margin: 0;
-  background: #f0f2f5;
-}
-
-/* Wrapper that centers content */
-.auth-wrapper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-}
-
-/* The “card” */
-.auth-card {
-  background: #fff;
-  padding: 2rem;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  width: 100%;
-  max-width: 380px;
-}
-
-.auth-card h2 {
-  text-align: center;
-  margin-bottom: 1.5rem;
-  color: #333;
-}
-
-.form-group {
-  margin-bottom: 1rem;
-}
-.form-group label {
-  display: block;
-  font-weight: 600;
-  margin-bottom: 0.25rem;
-}
-.form-group input {
-  width: 100%;
-  padding: 0.5rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-}
-
-.btn {
-  width: 100%;
-  background: #007bff;
-  color: #fff;
-  border: none;
-  padding: 0.6rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1rem;
-}
-.btn:hover {
-  background: #0056b3;
-}
-
-.error {
-  background: #f8d7da;
-  color: #721c24;
-  padding: 0.75rem;
-  border-radius: 4px;
-  margin-bottom: 1rem;
-}
-
-.auth-link {
-  text-align: center;
-  margin-top: 1rem;
-}
-.auth-link a {
-  color: #007bff;
-  text-decoration: none;
-}
-.auth-link a:hover {
-  text-decoration: underline;
-}
-
-.truncate-1 {
-  display: inline-block;
-  max-width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* make each calendar cell a positioning context */
-.table td {
-  position: relative;
-  padding: 4px;            /* tighten up the default table-cell padding */
-  height: 100px;           /* enforce your fixed-height cells */
-  vertical-align: top;
-}
-
-/* wrapper for up to 3 badges, clipped if too many */
-.task-container {
-  position: absolute;
-  top: 1.8em;              /* push it just below the date line */
-  left: 4px;
-  right: 4px;
-  bottom: 4px;             /* reserve space for “+N more” */
-  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 2px;                /* small gap between badges */
 }
 
-/* single-line badges, ellipsis if too long */
-.task-container .badge {
-  display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+main {
+  flex: 1 0 auto;
 }
 
-/* the “+N more” indicator */
-.task-more {
-  position: absolute;
-  bottom: 4px;
-  left: 4px;
-  font-size: 0.75em;
-  color: #6c757d;
+footer {
+  flex-shrink: 0;
 }

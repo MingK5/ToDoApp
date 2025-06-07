@@ -5,10 +5,16 @@ if (empty($_SESSION['user_id'])) {
   exit;
 }
 
-// force no-cache
 header('Cache-Control: no-cache, no-store, must-revalidate');
 header('Pragma: no-cache');
 header('Expires: 0');
 
+$pageTitle = 'ToDoApp: Status';
 include __DIR__ . '/../includes/header.php';
 ?>
+
+<div class="container">
+  <h4 class="text-center text-decoration-underline">Task Status Management</h4>
+</div>
+
+<?php include __DIR__ . '/../includes/footer.php'; ?>

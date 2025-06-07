@@ -63,9 +63,11 @@ while ($day <= $daysInMonth) {
   $weeks[] = $week;
 }
 
+$pageTitle = 'ToDoApp: Calendar';
 include __DIR__ . '/../includes/header.php';
 ?>
 <div class="container">
+  <h4 class="text-center text-decoration-underline">Calendar: Task Recording</h4>
   <div class="d-flex justify-content-between align-items-center mb-3">
     <a href="?year=<?= $prev->format('Y') ?>&month=<?= $prev->format('n') ?>"
        class="btn btn-outline-primary">&laquo; Prev</a>
@@ -90,6 +92,7 @@ include __DIR__ . '/../includes/header.php';
             <?php if (!$date): ?>
               <td class="bg-light" style="height:100px;"></td>
             <?php else: 
+              date_default_timezone_set('Asia/Kuala_Lumpur');
               $isToday    = $date === date('Y-m-d');
               $badgeClass = $isToday ? 'bg-info text-white' : '';
 
