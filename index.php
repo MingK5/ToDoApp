@@ -3,13 +3,13 @@
 require_once __DIR__ . '/includes/db.php';
 session_start();
 
-// 1. Redirect if already logged in
+// 1) Redirect if already logged in
 if (!empty($_SESSION['user_id'])) {
   header('Location: /ToDoApp/calendar');
   exit;
 }
 
-// 2. Handle POST
+// 2) Handle POST
 $errors = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $u = trim($_POST['username'] ?? '');
