@@ -107,8 +107,8 @@ include __DIR__ . '/../includes/header.php';
                                                 <h6 class="mb-1">
                                                     <?= htmlspecialchars($task['title']) ?>
                                                     <span class="badge 
-                                                        <?= $task['status'] === 'Ongoing' ? 'bg-warning' : 
-                                                            ($task['status'] === 'Pending' ? 'bg-info' : 
+                                                        <?= $task['status'] === 'Ongoing' ? 'bg-info' : 
+                                                            ($task['status'] === 'Pending' ? 'bg-warning' : 
                                                             ($task['status'] === 'Completed' ? 'bg-success' : 'bg-secondary')) ?> ms-2">
                                                         <?= ucfirst($task['status']) ?>
                                                     </span>
