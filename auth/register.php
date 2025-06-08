@@ -3,6 +3,7 @@
 require_once __DIR__ . '/../includes/db.php';
 session_start();
 
+// 1) Handle form submission
 $errors = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $u = trim($_POST['username']        ?? '');
@@ -10,6 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $p =            $_POST['password']  ?? '';
   $c =            $_POST['password_confirm'] ?? '';
 
+  // 2) Validate inputs
   if (!$u || !$n || !$p) {
     $errors[] = 'All fields are required.';
   }
@@ -17,6 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $errors[] = 'Passwords do not match.';
   }
 
+  // 3) If valid, hash password & insert new user
   if (empty($errors)) {
     $hash = password_hash($p, PASSWORD_DEFAULT);
     $stmt = $pdo->prepare("
