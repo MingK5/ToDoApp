@@ -13,7 +13,7 @@
   <!-- Bootstrap Icons -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
   <!-- Your custom styles (if any) -->
-  <link rel="stylesheet" href="/ToDoApp/assets/css/styles.css">
+  <link rel="stylesheet" href="/ToDoApp/assets/css/style.css">
 </head>
 <body class="bg-light">
 

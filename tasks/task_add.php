@@ -57,9 +57,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   if (empty($errors)) {
     $stmt = $pdo->prepare("
       INSERT INTO tasks
-        (user_id, category_id, title, description, due_date, priority)
+        (user_id, category_id, title, description, due_date, priority, created_at, updated_at)
       VALUES
-        (:uid, :cid, :title, :descr, :dd, :prio)
+        (:uid, :cid, :title, :descr, :dd, :prio, NOW(), NOW())
     ");
     $stmt->execute([
       ':uid'   => $_SESSION['user_id'],
