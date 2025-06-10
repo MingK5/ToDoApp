@@ -204,7 +204,6 @@ include __DIR__ . '/../includes/header.php';
           <table class="table table-hover mb-0">
             <thead class="table-light">
               <tr>
-                <th>Due Date</th>
                 <th>Title</th>
                 <th>Category</th>
                 <th>Priority</th>
