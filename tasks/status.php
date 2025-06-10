@@ -214,7 +214,6 @@ include __DIR__ . '/../includes/header.php';
             <tbody>
               <?php foreach ($tasksByDate[$date] ?? [] as $task): ?>
                 <tr>
-                  <td><?= date('Y-m-d', strtotime($task['due_date'])) ?></td>
                   <td><?= htmlspecialchars($task['title']) ?></td>
                   <td><?= htmlspecialchars($task['category_name'] ?? 'Uncategorized') ?></td>
                   <td>
