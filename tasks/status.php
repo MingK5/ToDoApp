@@ -28,14 +28,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['task_id'], $_POST['st
     ");
     $stmt->execute([$status, $task_id, $_SESSION['user_id']]);
   }
-  header('Location: ' . $_SERVER['PHP_SELF'] . '?status=' . urlencode($_GET['status'] ?? '') . '&category=' . urlencode($_GET['category'] ?? '') . '&priority=' . urlencode($_GET['priority'] ?? '') . '&sort=' . ($_GET['sort'] ?? 'asc') . '&page=' . ($_GET['page'] ?? '1'));
+  header('Location: ' . $_SERVER['PHP_SELF'] . '?status=' . urlencode($_GET['status'] ?? 'All Status') . '&category=' . urlencode($_GET['category'] ?? '') . '&priority=' . urlencode($_GET['priority'] ?? '') . '&sort=' . ($_GET['sort'] ?? 'asc') . '&page=' . ($_GET['page'] ?? '1'));
   exit;
 }
 
 // 4) Handle edit form submission (placeholder - to be handled in task_edit.php)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_task_id'])) {
   // Edit functionality will be handled in task_edit.php
-  header('Location: ' . $_SERVER['PHP_SELF'] . '?status=' . urlencode($_GET['status'] ?? '') . '&category=' . urlencode($_GET['category'] ?? '') . '&priority=' . urlencode($_GET['priority'] ?? '') . '&sort=' . ($_GET['sort'] ?? 'asc') . '&page=' . ($_GET['page'] ?? '1'));
+  header('Location: ' . $_SERVER['PHP_SELF'] . '?status=' . urlencode($_GET['status'] ?? 'All Status') . '&category=' . urlencode($_GET['category'] ?? '') . '&priority=' . urlencode($_GET['priority'] ?? '') . '&sort=' . ($_GET['sort'] ?? 'asc') . '&page=' . ($_GET['page'] ?? '1'));
   exit;
 }
 
@@ -43,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_task_id'])) {
 $categoryFilter = isset($_GET['category']) ? urldecode($_GET['category']) : '';
 $priorityFilter = isset($_GET['priority']) ? urldecode($_GET['priority']) : '';
 $sortOrder = isset($_GET['sort']) ? $_GET['sort'] : 'asc';
-$status_filter = isset($_GET['status']) ? urldecode($_GET['status']) : 'All';
+$status_filter = isset($_GET['status']) ? urldecode($_GET['status']) : 'All Status';
 
 // 6) Pagination settings
 $daysPerPage = 5;
@@ -61,7 +61,7 @@ if ($priorityFilter) {
     $sql .= " AND priority = ?";
     $params[] = $priorityFilter;
 }
-if ($status_filter !== 'All') {
+if ($status_filter !== 'All Status') {
     $sql .= " AND status = ?";
     $params[] = $status_filter;
 }
@@ -85,7 +85,7 @@ if ($priorityFilter) {
     $sql .= " AND priority = ?";
     $params[] = $priorityFilter;
 }
-if ($status_filter !== 'All') {
+if ($status_filter !== 'All Status') {
     $sql .= " AND status = ?";
     $params[] = $status_filter;
 }
@@ -115,7 +115,7 @@ if (!empty($dates)) {
         $sql .= " AND t.priority = ?";
         $params[] = $priorityFilter;
     }
-    if ($status_filter !== 'All') {
+    if ($status_filter !== 'All Status') {
         $sql .= " AND t.status = ?";
         $params[] = $status_filter;
     }
@@ -139,7 +139,7 @@ $categories = $catStmt->fetchAll(PDO::FETCH_COLUMN);
 $categories = array_map('strval', $categories);
 
 $priorities = ['Low', 'Medium', 'High'];
-$valid_statuses = ['All', 'Pending', 'On-going', 'Completed'];
+$valid_statuses = ['All Status', 'Pending', 'On-going', 'Completed'];
 
 // 11) Set page title
 $pageTitle = 'ToDoApp: Status';
@@ -173,12 +173,10 @@ include __DIR__ . '/../includes/header.php';
     </div>
     <div class="col-md-3">
       <select class="form-select" name="status" onchange="this.form.submit()" form="filterForm">
-        <option value="">All Status</option>
-        <?php foreach ($valid_statuses as $filter): ?>
-          <option value="<?= htmlspecialchars($filter) ?>" <?= $status_filter === $filter ? 'selected' : '' ?>>
-            <?= htmlspecialchars($filter) ?>
-          </option>
-        <?php endforeach; ?>
+        <option value="All Status" <?= $status_filter === 'All Status' ? 'selected' : '' ?>>All Status</option>
+        <option value="Pending" <?= $status_filter === 'Pending' ? 'selected' : '' ?>>Pending</option>
+        <option value="On-going" <?= $status_filter === 'On-going' ? 'selected' : '' ?>>On-going</option>
+        <option value="Completed" <?= $status_filter === 'Completed' ? 'selected' : '' ?>>Completed</option>
       </select>
     </div>
     <div class="col-md-3">
@@ -197,62 +195,62 @@ include __DIR__ . '/../includes/header.php';
   <?php if (empty($tasksByDate)): ?>
     <p class="text-center">No tasks found.</p>
   <?php else: ?>
-    <?php foreach ($dates as $date): ?>
-      <div class="card mb-3" style="border: 1px solid #dee2e6;">
-        <div class="card-header" style="background-color: #2F4F4F; color: white; padding: 0.5rem 1rem;">
-          <?= date('F j, Y', strtotime($date)) ?>
-        </div>
-        <div class="card-body p-0">
-          <table class="table table-hover mb-0">
-            <thead class="table-light">
+    <!-- Single table for all dates to ensure column alignment -->
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead class="table-light">
+          <tr>
+            <th>Date</th>
+            <th>Title</th>
+            <th>Category</th>
+            <th>Due Date</th>
+            <th>Priority</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php foreach ($dates as $date): ?>
+            <?php foreach ($tasksByDate[$date] ?? [] as $task): ?>
               <tr>
-                <th>Title</th>
-                <th>Category</th>
-                <th>Due Date</th>
-                <th>Priority</th>
-                <th>Status</th>
-                <th>Actions</th>
+                <td style="background-color: #2F4F4F; color: white;" rowspan="1">
+                  <?= date('F j, Y', strtotime($date)) ?>
+                </td>
+                <td><?= htmlspecialchars($task['title']) ?></td>
+                <td><?= htmlspecialchars($task['category_name'] ?? 'Uncategorized') ?></td>
+                <td><?= date('Y-m-d', strtotime($task['due_date'])) ?></td>
+                <td>
+                  <span class="badge 
+                    <?= $task['priority'] === 'High' ? 'bg-danger' : 
+                        ($task['priority'] === 'Medium' ? 'bg-warning' : 'bg-success') ?>">
+                    <?= htmlspecialchars($task['priority']) ?>
+                  </span>
+                </td>
+                <td>
+                  <form method="post" class="d-inline">
+                    <input type="hidden" name="task_id" value="<?= $task['id'] ?>">
+                    <select name="status" class="form-select form-select-sm d-inline-block" style="width: auto;" onchange="this.form.submit()">
+                      <?php foreach (['Pending', 'On-going', 'Completed'] as $status): ?>
+                        <option value="<?= $status ?>" <?= $task['status'] === $status ? 'selected' : '' ?>>
+                          <?= $status ?>
+                        </option>
+                      <?php endforeach; ?>
+                    </select>
+                  </form>
+                </td>
+                <td>
+                  <a href="/ToDoApp/tasks/task_edit.php?id=<?= $task['id'] ?>" 
+                     class="btn btn-outline-primary btn-sm" 
+                     onclick="window.open(this.href,'EditTask','width=600,height=600');return false;">
+                    Edit
+                  </a>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              <?php foreach ($tasksByDate[$date] ?? [] as $task): ?>
-                <tr>
-                  <td><?= htmlspecialchars($task['title']) ?></td>
-                  <td><?= htmlspecialchars($task['category_name'] ?? 'Uncategorized') ?></td>
-                  <td><?= date('Y-m-d', strtotime($task['due_date'])) ?></td>
-                  <td>
-                    <span class="badge 
-                      <?= $task['priority'] === 'High' ? 'bg-danger' : 
-                          ($task['priority'] === 'Medium' ? 'bg-warning' : 'bg-success') ?>">
-                      <?= htmlspecialchars($task['priority']) ?>
-                    </span>
-                  </td>
-                  <td>
-                    <form method="post" class="d-inline">
-                      <input type="hidden" name="task_id" value="<?= $task['id'] ?>">
-                      <select name="status" class="form-select form-select-sm d-inline-block" style="width: auto;" onchange="this.form.submit()">
-                        <?php foreach (['Pending', 'On-going', 'Completed'] as $status): ?>
-                          <option value="<?= $status ?>" <?= $task['status'] === $status ? 'selected' : '' ?>>
-                            <?= $status ?>
-                          </option>
-                        <?php endforeach; ?>
-                      </select>
-                    </form>
-                  </td>
-                  <td>
-                    <a href="/ToDoApp/tasks/task_edit.php?id=<?= $task['id'] ?>" 
-                       class="btn btn-outline-primary btn-sm" 
-                       onclick="window.open(this.href,'EditTask','width=600,height=600');return false;">
-                      Edit
-                    </a>
-                  </td>
-                </tr>
-              <?php endforeach; ?>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    <?php endforeach; ?>
+            <?php endforeach; ?>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
 
     <!-- Pagination -->
     <nav aria-label="Page navigation" style="padding-top:1em">
