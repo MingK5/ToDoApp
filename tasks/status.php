@@ -46,12 +46,12 @@ $sortOrder = isset($_GET['sort']) ? $_GET['sort'] : 'asc';
 $status_filter = isset($_GET['status']) ? urldecode($_GET['status']) : 'All Status';
 
 // 6) Pagination settings
-$daysPerPage = 5;
+$itemsPerPage = 10; // Changed to items per page instead of days
 $page = isset($_GET['page']) && is_numeric($_GET['page']) ? (int)$_GET['page'] : 1;
-$offset = ($page - 1) * $daysPerPage;
+$offset = ($page - 1) * $itemsPerPage;
 
-// 7) Get total number of distinct dates with filters
-$sql = "SELECT COUNT(DISTINCT DATE(due_date)) as total_dates FROM tasks WHERE user_id = ? AND archived = 0";
+// 7) Get total number of tasks with filters
+$sql = "SELECT COUNT(*) as total_tasks FROM tasks WHERE user_id = ? AND archived = 0";
 $params = [$_SESSION['user_id']];
 if ($categoryFilter) {
     $sql .= " AND category_id = (SELECT id FROM categories WHERE name = ?)";
@@ -67,70 +67,35 @@ if ($status_filter !== 'All Status') {
 }
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
-$totalDates = $stmt->fetchColumn();
-$totalPages = ceil($totalDates / $daysPerPage);
+$totalTasks = $stmt->fetchColumn();
+$totalPages = ceil($totalTasks / $itemsPerPage);
 
-// 8) Get distinct dates with limit for pagination and filters
+// 8) Get tasks with filters and pagination
 $sql = "
-    SELECT DISTINCT DATE(due_date) as due_date
-    FROM tasks
-    WHERE user_id = ? AND archived = 0
+    SELECT t.id, t.title, t.due_date, t.status, t.priority, c.name as category_name, t.created_at, t.updated_at
+    FROM tasks t
+    LEFT JOIN categories c ON t.category_id = c.id
+    WHERE t.user_id = ? AND t.archived = 0
 ";
 $params = [$_SESSION['user_id']];
 if ($categoryFilter) {
-    $sql .= " AND category_id = (SELECT id FROM categories WHERE name = ?)";
+    $sql .= " AND t.category_id = (SELECT id FROM categories WHERE name = ?)";
     $params[] = $categoryFilter;
 }
 if ($priorityFilter) {
-    $sql .= " AND priority = ?";
+    $sql .= " AND t.priority = ?";
     $params[] = $priorityFilter;
 }
 if ($status_filter !== 'All Status') {
-    $sql .= " AND status = ?";
+    $sql .= " AND t.status = ?";
     $params[] = $status_filter;
 }
-$sql .= " ORDER BY due_date " . ($sortOrder === 'desc' ? 'DESC' : 'ASC') . " LIMIT ? OFFSET ?";
-$params[] = $daysPerPage;
+$sql .= " ORDER BY t.due_date " . ($sortOrder === 'desc' ? 'DESC' : 'ASC') . " LIMIT ? OFFSET ?";
+$params[] = $itemsPerPage;
 $params[] = $offset;
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
-$dates = $stmt->fetchAll(PDO::FETCH_COLUMN);
-
-// 9) Get tasks for the selected dates with category, dates, and filters
-$tasksByDate = [];
-if (!empty($dates)) {
-    $placeholders = implode(',', array_fill(0, count($dates), '?'));
-    $sql = "
-        SELECT t.id, t.title, t.description, t.due_date, t.status, t.priority, c.name as category_name, t.created_at, t.updated_at
-        FROM tasks t
-        LEFT JOIN categories c ON t.category_id = c.id
-        WHERE t.user_id = ? AND t.archived = 0
-    ";
-    $params = [$_SESSION['user_id']];
-    if ($categoryFilter) {
-        $sql .= " AND t.category_id = (SELECT id FROM categories WHERE name = ?)";
-        $params[] = $categoryFilter;
-    }
-    if ($priorityFilter) {
-        $sql .= " AND t.priority = ?";
-        $params[] = $priorityFilter;
-    }
-    if ($status_filter !== 'All Status') {
-        $sql .= " AND t.status = ?";
-        $params[] = $status_filter;
-    }
-    $sql .= " AND DATE(t.due_date) IN ($placeholders) ORDER BY t.due_date " . ($sortOrder === 'desc' ? 'DESC' : 'ASC');
-    $stmt = $pdo->prepare($sql);
-    $params = array_merge($params, $dates);
-    $stmt->execute($params);
-    $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    // Group tasks by date
-    foreach ($tasks as $task) {
-        $date = date('Y-m-d', strtotime($task['due_date']));
-        $tasksByDate[$date][] = $task;
-    }
-}
+$tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // 10) Fetch unique categories and priorities
 $catStmt = $pdo->prepare("SELECT DISTINCT name FROM categories");
@@ -192,14 +157,14 @@ include __DIR__ . '/../includes/header.php';
     <input type="hidden" name="page" value="<?= $page ?>">
   </form>
 
-  <?php if (empty($tasksByDate)): ?>
+  <?php if (empty($tasks)): ?>
     <p class="text-center">No tasks found.</p>
   <?php else: ?>
     <div class="table-responsive">
       <table class="table table-hover">
         <thead class="table-light">
           <tr>
-            <th>Date</th>
+            <th>Due Date</th>
             <th>Title</th>
             <th>Category</th>
             <th>Priority</th>
@@ -208,42 +173,38 @@ include __DIR__ . '/../includes/header.php';
           </tr>
         </thead>
         <tbody>
-          <?php foreach ($dates as $date): ?>
-            <?php foreach ($tasksByDate[$date] ?? [] as $task): ?>
-              <tr>
-                <td style="background-color: #2F4F4F; color: white;" rowspan="1">
-                  <?= date('F j, Y', strtotime($date)) ?>
-                </td>
-                <td><?= htmlspecialchars($task['title']) ?></td>
-                <td><?= htmlspecialchars($task['category_name'] ?? 'Uncategorized') ?></td>
-                <td>
-                  <span class="badge 
-                    <?= $task['priority'] === 'High' ? 'bg-danger' : 
-                        ($task['priority'] === 'Medium' ? 'bg-warning' : 'bg-success') ?>">
-                    <?= htmlspecialchars($task['priority']) ?>
-                  </span>
-                </td>
-                <td>
-                  <form method="post" class="d-inline">
-                    <input type="hidden" name="task_id" value="<?= $task['id'] ?>">
-                    <select name="status" class="form-select form-select-sm d-inline-block" style="width: auto;" onchange="this.form.submit()">
-                      <?php foreach (['Pending', 'On-going', 'Completed'] as $status): ?>
-                        <option value="<?= $status ?>" <?= $task['status'] === $status ? 'selected' : '' ?>>
-                          <?= $status ?>
-                        </option>
-                      <?php endforeach; ?>
-                    </select>
-                  </form>
-                </td>
-                <td>
-                  <a href="/ToDoApp/tasks/task_edit.php?id=<?= $task['id'] ?>" 
-                     class="btn btn-outline-primary btn-sm" 
-                     onclick="window.open(this.href,'EditTask','width=600,height=600');return false;">
-                    Edit
-                  </a>
-                </td>
-              </tr>
-            <?php endforeach; ?>
+          <?php foreach ($tasks as $task): ?>
+            <tr>
+              <td><?= date('Y-m-d', strtotime($task['due_date'])) ?></td>
+              <td><?= htmlspecialchars($task['title']) ?></td>
+              <td><?= htmlspecialchars($task['category_name'] ?? 'Uncategorized') ?></td>
+              <td>
+                <span class="badge 
+                  <?= $task['priority'] === 'High' ? 'bg-danger' : 
+                      ($task['priority'] === 'Medium' ? 'bg-warning' : 'bg-success') ?>">
+                  <?= htmlspecialchars($task['priority']) ?>
+                </span>
+              </td>
+              <td>
+                <form method="post" class="d-inline">
+                  <input type="hidden" name="task_id" value="<?= $task['id'] ?>">
+                  <select name="status" class="form-select form-select-sm d-inline-block" style="width: auto;" onchange="this.form.submit()">
+                    <?php foreach (['Pending', 'On-going', 'Completed'] as $status): ?>
+                      <option value="<?= $status ?>" <?= $task['status'] === $status ? 'selected' : '' ?>>
+                        <?= $status ?>
+                      </option>
+                    <?php endforeach; ?>
+                  </select>
+                </form>
+              </td>
+              <td>
+                <a href="/ToDoApp/tasks/task_edit.php?id=<?= $task['id'] ?>" 
+                   class="btn btn-outline-primary btn-sm" 
+                   onclick="window.open(this.href,'EditTask','width=600,height=600');return false;">
+                  Edit
+                </a>
+              </td>
+            </tr>
           <?php endforeach; ?>
         </tbody>
       </table>
