@@ -28,108 +28,268 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['task_id'], $_POST['st
     ");
     $stmt->execute([$status, $task_id, $_SESSION['user_id']]);
   }
-  header('Location: ' . $_SERVER['PHP_SELF'] . '?status=' . urlencode($_GET['status'] ?? ''));
+  header('Location: ' . $_SERVER['PHP_SELF'] . '?status=' . urlencode($_GET['status'] ?? '') . '&category=' . urlencode($_GET['category'] ?? '') . '&priority=' . urlencode($_GET['priority'] ?? '') . '&sort=' . ($_GET['sort'] ?? 'asc'));
   exit;
 }
 
-// 4) Get status filter
-$status_filter = isset($_GET['status']) ? urldecode($_GET['status']) : 'All';
-$valid_filters = ['All', 'Pending', 'On-going', 'Completed'];
-if (!in_array($status_filter, $valid_filters)) {
-  $status_filter = 'All';
+// 4) Handle edit form submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_task_id'])) {
+  $task_id = (int)$_POST['edit_task_id'];
+  $title = trim($_POST['title'] ?? '');
+  $description = trim($_POST['description'] ?? '');
+  $priority = $_POST['priority'] ?? 'Medium';
+  $category_id = $_POST['category_id'] ?? '';
+  $due_date = $_POST['due_date'] ?? '';
+
+  if ($title && in_array($priority, ['Low', 'Medium', 'High'], true) && ctype_digit($category_id) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $due_date)) {
+    $stmt = $pdo->prepare("
+      UPDATE tasks 
+      SET title = ?, description = ?, priority = ?, category_id = ?, due_date = ?, updated_at = NOW()
+      WHERE id = ? AND user_id = ? AND archived = 0
+    ");
+    $stmt->execute([$title, $description, $priority, $category_id, $due_date, $task_id, $_SESSION['user_id']]);
+    echo <<<JS
+    <script>
+      window.opener.location.reload();
+      window.close();
+    </script>
+    JS;
+    exit;
+  }
 }
 
-// 5) Fetch tasks based on status filter
-$sql = "
-  SELECT t.id, t.title, t.description, t.due_date, t.status, t.priority, c.name as category_name, t.created_at, t.updated_at
-  FROM tasks t
-  LEFT JOIN categories c ON t.category_id = c.id
-  WHERE t.user_id = ? AND t.archived = 0
-";
+// 5) Filter and sort parameters
+$categoryFilter = isset($_GET['category']) ? urldecode($_GET['category']) : '';
+$priorityFilter = isset($_GET['priority']) ? urldecode($_GET['priority']) : '';
+$sortOrder = isset($_GET['sort']) ? $_GET['sort'] : 'asc';
+$status_filter = isset($_GET['status']) ? urldecode($_GET['status']) : 'All';
+
+// 6) Pagination settings
+$datesPerPage = 5;
+$page = isset($_GET['page']) && is_numeric($_GET['page']) ? (int)$_GET['page'] : 1;
+$offset = ($page - 1) * $datesPerPage;
+
+// 7) Get total number of distinct dates with filters
+$sql = "SELECT COUNT(DISTINCT DATE(due_date)) as total_dates FROM tasks WHERE user_id = ? AND archived = 0";
 $params = [$_SESSION['user_id']];
-if ($status_filter !== 'All') {
-  $sql .= " AND t.status = ?";
-  $params[] = $status_filter;
+if ($categoryFilter) {
+    $sql .= " AND category_id = (SELECT id FROM categories WHERE name = ?)";
+    $params[] = $categoryFilter;
 }
-$sql .= " ORDER BY t.due_date ASC";
+if ($priorityFilter) {
+    $sql .= " AND priority = ?";
+    $params[] = $priorityFilter;
+}
+if ($status_filter !== 'All') {
+    $sql .= " AND status = ?";
+    $params[] = $status_filter;
+}
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
-$tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$totalDates = $stmt->fetchColumn();
+$totalPages = ceil($totalDates / $datesPerPage);
 
-// 6) Set page title
+// 8) Get distinct dates with limit for pagination and filters
+$sql = "
+    SELECT DISTINCT DATE(due_date) as due_date
+    FROM tasks
+    WHERE user_id = ? AND archived = 0
+";
+$params = [$_SESSION['user_id']];
+if ($categoryFilter) {
+    $sql .= " AND category_id = (SELECT id FROM categories WHERE name = ?)";
+    $params[] = $categoryFilter;
+}
+if ($priorityFilter) {
+    $sql .= " AND priority = ?";
+    $params[] = $priorityFilter;
+}
+if ($status_filter !== 'All') {
+    $sql .= " AND status = ?";
+    $params[] = $status_filter;
+}
+$sql .= " ORDER BY due_date " . ($sortOrder === 'desc' ? 'DESC' : 'ASC') . " LIMIT ? OFFSET ?";
+$params[] = $datesPerPage;
+$params[] = $offset;
+$stmt = $pdo->prepare($sql);
+$stmt->execute($params);
+$dates = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+// 9) Get tasks for the selected dates with category, dates, and filters
+$tasksByDate = [];
+if (!empty($dates)) {
+    $placeholders = implode(',', array_fill(0, count($dates), '?'));
+    $sql = "
+        SELECT t.id, t.title, t.description, t.due_date, t.status, t.priority, c.name as category_name, t.created_at, t.updated_at
+        FROM tasks t
+        LEFT JOIN categories c ON t.category_id = c.id
+        WHERE t.user_id = ? AND t.archived = 0
+    ";
+    $params = [$_SESSION['user_id']];
+    if ($categoryFilter) {
+        $sql .= " AND t.category_id = (SELECT id FROM categories WHERE name = ?)";
+        $params[] = $categoryFilter;
+    }
+    if ($priorityFilter) {
+        $sql .= " AND t.priority = ?";
+        $params[] = $priorityFilter;
+    }
+    if ($status_filter !== 'All') {
+        $sql .= " AND t.status = ?";
+        $params[] = $status_filter;
+    }
+    $sql .= " AND DATE(t.due_date) IN ($placeholders) ORDER BY t.due_date " . ($sortOrder === 'desc' ? 'DESC' : 'ASC');
+    $stmt = $pdo->prepare($sql);
+    $params = array_merge($params, $dates);
+    $stmt->execute($params);
+    $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Group tasks by date
+    foreach ($tasks as $task) {
+        $date = date('Y-m-d', strtotime($task['due_date']));
+        $tasksByDate[$date][] = $task;
+    }
+}
+
+// 10) Fetch unique categories and priorities
+$catStmt = $pdo->prepare("SELECT DISTINCT name FROM categories");
+$catStmt->execute();
+$categories = $catStmt->fetchAll(PDO::FETCH_COLUMN);
+$categories = array_map('strval', $categories);
+
+$priorities = ['Low', 'Medium', 'High'];
+$valid_statuses = ['All', 'Pending', 'On-going', 'Completed'];
+
+// 11) Set page title
 $pageTitle = 'ToDoApp: Status';
 include __DIR__ . '/../includes/header.php';
 ?>
 
 <div class="container mt-4">
-  <h4 class="text-center text-decoration-underline mb-4">Task Status Management</h4>
+  <h4 class="text-center text-decoration-underline mb-4">Schedule: Task Monitoring</h4>
 
-  <!-- Status Filter -->
-  <div class="mb-3">
-    <label for="statusFilter" class="form-label">Filter by Status</label>
-    <select id="statusFilter" class="form-select" onchange="window.location.href='?status=' + encodeURIComponent(this.value)">
-      <?php foreach ($valid_filters as $filter): ?>
-        <option value="<?= htmlspecialchars($filter) ?>" <?= $status_filter === $filter ? 'selected' : '' ?>>
-          <?= htmlspecialchars($filter) ?>
-        </option>
-      <?php endforeach; ?>
-    </select>
-  </div>
-
-  <?php if (empty($tasks)): ?>
-    <p class="text-center">No tasks found.</p>
-  <?php else: ?>
-    <div class="card">
-      <div class="card-body">
-        <table class="table table-hover">
-          <thead class="table-light">
-            <tr>
-              <th>Title</th>
-              <th>Category</th>
-              <th>Due Date</th>
-              <th>Priority</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <?php foreach ($tasks as $task): ?>
-              <tr>
-                <td><?= htmlspecialchars($task['title']) ?></td>
-                <td><?= htmlspecialchars($task['category_name'] ?? 'Uncategorized') ?></td>
-                <td><?= date('Y-m-d', strtotime($task['due_date'])) ?></td>
-                <td>
-                  <span class="badge 
-                    <?= $task['priority'] === 'High' ? 'bg-danger' : 
-                        ($task['priority'] === 'Medium' ? 'bg-warning' : 'bg-success') ?>">
-                    <?= htmlspecialchars($task['priority']) ?>
-                  </span>
-                </td>
-                <td>
-                  <form method="post" class="d-inline">
-                    <input type="hidden" name="task_id" value="<?= $task['id'] ?>">
-                    <select name="status" class="form-select form-select-sm d-inline-block" style="width: auto;" onchange="this.form.submit()">
-                      <?php foreach (['Pending', 'On-going', 'Completed'] as $status): ?>
-                        <option value="<?= $status ?>" <?= $task['status'] === $status ? 'selected' : '' ?>>
-                          <?= $status ?>
-                        </option>
-                      <?php endforeach; ?>
-                    </select>
-                  </form>
-                </td>
-                <td>
-                  <a href="/ToDoApp/tasks/task_edit.php?id=<?= $task['id'] ?>" 
-                     class="btn btn-outline-primary btn-sm" 
-                     onclick="window.open(this.href,'EditTask','width=600,height=600');return false;">
-                    Edit
-                  </a>
-                </td>
-              </tr>
-            <?php endforeach; ?>
-          </tbody>
-        </table>
+  <!-- Filters -->
+  <div class="row mb-3">
+    <div class="col-md-4">
+      <select class="form-select" name="category" onchange="this.form.submit()" form="filterForm">
+        <option value="">All Categories</option>
+        <?php foreach ($categories as $category): ?>
+          <option value="<?= htmlspecialchars($category) ?>" <?= $categoryFilter === $category ? 'selected' : '' ?>>
+            <?= htmlspecialchars($category) ?>
+          </option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+    <div class="col-md-4">
+      <select class="form-select" name="priority" onchange="this.form.submit()" form="filterForm">
+        <option value="">All Priorities</option>
+        <?php foreach ($priorities as $priority): ?>
+          <option value="<?= htmlspecialchars($priority) ?>" <?= $priorityFilter === $priority ? 'selected' : '' ?>>
+            <?= htmlspecialchars($priority) ?>
+          </option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+    <div class="col-md-4">
+      <div class="btn-group">
+        <a href="?page=<?= $page ?>&category=<?= urlencode($categoryFilter) ?>&priority=<?= urlencode($priorityFilter) ?>&status=<?= urlencode($status_filter) ?>&sort=asc" 
+           class="btn btn-outline-secondary <?= $sortOrder === 'asc' ? 'active' : '' ?>">Sort Asc</a>
+        <a href="?page=<?= $page ?>&category=<?= urlencode($categoryFilter) ?>&priority=<?= urlencode($priorityFilter) ?>&status=<?= urlencode($status_filter) ?>&sort=desc" 
+           class="btn btn-outline-secondary <?= $sortOrder === 'desc' ? 'active' : '' ?>">Sort Desc</a>
       </div>
     </div>
+  </div>
+  <form id="filterForm" method="get" style="display: none;">
+    <input type="hidden" name="page" value="<?= $page ?>">
+  </form>
+
+  <?php if (empty($tasksByDate)): ?>
+    <p class="text-center">No tasks found.</p>
+  <?php else: ?>
+    <div class="accordion" id="tasksAccordion">
+      <?php foreach ($tasksByDate as $date => $tasks): ?>
+        <div class="accordion-item" style="padding-bottom: 0.5em;">
+          <h2 class="accordion-header" id="heading<?= str_replace('-', '', $date) ?>">
+            <button class="accordion-button" type="button" 
+                    data-bs-toggle="collapse" data-bs-target="#collapse<?= str_replace('-', '', $date) ?>" 
+                    aria-expanded="true" aria-controls="collapse<?= str_replace('-', '', $date) ?>" 
+                    style="background-color: #2F4F4F; color: white;">
+              <?= date('F j, Y', strtotime($date)) ?>
+            </button>
+          </h2>
+          <div id="collapse<?= str_replace('-', '', $date) ?>" 
+               class="accordion-collapse collapse show" 
+               aria-labelledby="heading<?= str_replace('-', '', $date) ?>">
+            <div class="accordion-body">
+              <ul class="list-group">
+                <?php foreach ($tasks as $task): ?>
+                  <li class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-center">
+                      <div>
+                        <h6 class="mb-1">
+                          <?= htmlspecialchars($task['title']) ?>
+                          <span class="badge 
+                            <?= $task['status'] === 'On-going' ? 'bg-warning' : 
+                                ($task['status'] === 'Completed' ? 'bg-success' : 'bg-secondary') ?> ms-2">
+                            <?= ucfirst($task['status']) ?>
+                          </span>
+                        </h6>
+                        <small class="text-primary mb-1" style="font-style:italic">
+                          Category: <?= htmlspecialchars($task['category_name'] ?? 'Uncategorized') ?>
+                        </small><br>
+                        <small class="mb-1">Description: <?= htmlspecialchars($task['description']) ?></small><br>
+                        <small class="mb-1">Priority: <?= htmlspecialchars($task['priority']) ?></small><br>
+                        <small class="mb-1">Due Date: <?= date('Y-m-d', strtotime($task['due_date'])) ?></small><br>
+                        <small class="mb-1">Created: <?= date('Y-m-d H:i', strtotime($task['created_at'])) ?></small><br>
+                        <small class="mb-1">Updated: <?= date('Y-m-d H:i', strtotime($task['updated_at'])) ?></small>
+                      </div>
+                      <div>
+                        <form method="post" class="d-inline">
+                          <input type="hidden" name="task_id" value="<?= $task['id'] ?>">
+                          <select name="status" class="form-select form-select-sm d-inline-block" style="width: auto;" onchange="this.form.submit()">
+                            <?php foreach (['Pending', 'On-going', 'Completed'] as $status): ?>
+                              <option value="<?= $status ?>" <?= $task['status'] === $status ? 'selected' : '' ?>>
+                                <?= $status ?>
+                              </option>
+                            <?php endforeach; ?>
+                          </select>
+                        </form>
+                        <a href="/ToDoApp/tasks/task_edit.php?id=<?= $task['id'] ?>" 
+                           class="btn btn-outline-primary btn-sm" 
+                           onclick="window.open(this.href,'EditTask','width=600,height=600');return false;">
+                          Edit
+                        </a>
+                      </div>
+                    </div>
+                  </li>
+                <?php endforeach; ?>
+              </ul>
+            </div>
+          </div>
+        </div>
+      <?php endforeach; ?>
+    </div>
+
+    <!-- Pagination -->
+    <nav aria-label="Page navigation" style="padding-top:1em">
+      <ul class="pagination justify-content-center">
+        <li class="page-item <?= $page <= 1 ? 'disabled' : '' ?>">
+          <a class="page-link" href="?page=<?= $page - 1 ?>&category=<?= urlencode($categoryFilter) ?>&priority=<?= urlencode($priorityFilter) ?>&status=<?= urlencode($status_filter) ?>&sort=<?= $sortOrder ?>" aria-label="Previous">
+            <span aria-hidden="true">«</span>
+          </a>
+        </li>
+        <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+          <li class="page-item <?= $i === $page ? 'active' : '' ?>">
+            <a class="page-link" href="?page=<?= $i ?>&category=<?= urlencode($categoryFilter) ?>&priority=<?= urlencode($priorityFilter) ?>&status=<?= urlencode($status_filter) ?>&sort=<?= $sortOrder ?>"><?= $i ?></a>
+          </li>
+        <?php endfor; ?>
+        <li class="page-item <?= $page >= $totalPages ? 'disabled' : '' ?>">
+          <a class="page-link" href="?page=<?= $page + 1 ?>&category=<?= urlencode($categoryFilter) ?>&priority=<?= urlencode($priorityFilter) ?>&status=<?= urlencode($status_filter) ?>&sort=<?= $sortOrder ?>" aria-label="Next">
+            <span aria-hidden="true">»</span>
+          </a>
+        </li>
+      </ul>
+    </nav>
   <?php endif; ?>
 </div>
 
