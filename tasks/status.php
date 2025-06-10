@@ -195,62 +195,59 @@ include __DIR__ . '/../includes/header.php';
   <?php if (empty($tasksByDate)): ?>
     <p class="text-center">No tasks found.</p>
   <?php else: ?>
-    <?php foreach ($dates as $date): ?>
-      <div class="card mb-3" style="border: 1px solid #dee2e6;">
-        <div class="card-header" style="background-color: #2F4F4F; color: white; padding: 0.5rem 1rem;">
-          <?= date('F j, Y', strtotime($date)) ?>
-        </div>
-        <div class="card-body p-0">
-          <table class="table table-hover mb-0">
-            <thead class="table-light">
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead class="table-light">
+          <tr>
+            <th>Date</th>
+            <th>Title</th>
+            <th>Category</th>
+            <th>Priority</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php foreach ($dates as $date): ?>
+            <?php foreach ($tasksByDate[$date] ?? [] as $task): ?>
               <tr>
-                <th>Due Date</th>
-                <th>Title</th>
-                <th>Category</th>
-                <th>Priority</th>
-                <th>Status</th>
-                <th>Actions</th>
+                <td style="background-color: #2F4F4F; color: white;" rowspan="1">
+                  <?= date('F j, Y', strtotime($date)) ?>
+                </td>
+                <td><?= htmlspecialchars($task['title']) ?></td>
+                <td><?= htmlspecialchars($task['category_name'] ?? 'Uncategorized') ?></td>
+                <td>
+                  <span class="badge 
+                    <?= $task['priority'] === 'High' ? 'bg-danger' : 
+                        ($task['priority'] === 'Medium' ? 'bg-warning' : 'bg-success') ?>">
+                    <?= htmlspecialchars($task['priority']) ?>
+                  </span>
+                </td>
+                <td>
+                  <form method="post" class="d-inline">
+                    <input type="hidden" name="task_id" value="<?= $task['id'] ?>">
+                    <select name="status" class="form-select form-select-sm d-inline-block" style="width: auto;" onchange="this.form.submit()">
+                      <?php foreach (['Pending', 'On-going', 'Completed'] as $status): ?>
+                        <option value="<?= $status ?>" <?= $task['status'] === $status ? 'selected' : '' ?>>
+                          <?= $status ?>
+                        </option>
+                      <?php endforeach; ?>
+                    </select>
+                  </form>
+                </td>
+                <td>
+                  <a href="/ToDoApp/tasks/task_edit.php?id=<?= $task['id'] ?>" 
+                     class="btn btn-outline-primary btn-sm" 
+                     onclick="window.open(this.href,'EditTask','width=600,height=600');return false;">
+                    Edit
+                  </a>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              <?php foreach ($tasksByDate[$date] ?? [] as $task): ?>
-                <tr>
-                  <td><?= date('Y-m-d', strtotime($task['due_date'])) ?></td>
-                  <td><?= htmlspecialchars($task['title']) ?></td>
-                  <td><?= htmlspecialchars($task['category_name'] ?? 'Uncategorized') ?></td>
-                  <td>
-                    <span class="badge 
-                      <?= $task['priority'] === 'High' ? 'bg-danger' : 
-                          ($task['priority'] === 'Medium' ? 'bg-warning' : 'bg-success') ?>">
-                      <?= htmlspecialchars($task['priority']) ?>
-                    </span>
-                  </td>
-                  <td>
-                    <form method="post" class="d-inline">
-                      <input type="hidden" name="task_id" value="<?= $task['id'] ?>">
-                      <select name="status" class="form-select form-select-sm d-inline-block" style="width: auto;" onchange="this.form.submit()">
-                        <?php foreach (['Pending', 'On-going', 'Completed'] as $status): ?>
-                          <option value="<?= $status ?>" <?= $task['status'] === $status ? 'selected' : '' ?>>
-                            <?= $status ?>
-                          </option>
-                        <?php endforeach; ?>
-                      </select>
-                    </form>
-                  </td>
-                  <td>
-                    <a href="/ToDoApp/tasks/task_edit.php?id=<?= $task['id'] ?>" 
-                       class="btn btn-outline-primary btn-sm" 
-                       onclick="window.open(this.href,'EditTask','width=600,height=600');return false;">
-                      Edit
-                    </a>
-                  </td>
-                </tr>
-              <?php endforeach; ?>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    <?php endforeach; ?>
+            <?php endforeach; ?>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
 
     <!-- Pagination -->
     <nav aria-label="Page navigation" style="padding-top:1em">
